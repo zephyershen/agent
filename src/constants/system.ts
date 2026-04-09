@@ -6,10 +6,19 @@ import { logForDebugging } from '../utils/debug.js'
 import { isEnvDefinedFalsy } from '../utils/envUtils.js'
 import { getAPIProvider } from '../utils/model/providers.js'
 import { getWorkload } from '../utils/workloadContext.js'
+import { getLLMProviderKind } from '../services/api/providerConfig.js'
 
-const DEFAULT_PREFIX = `You are Claude Code, Anthropic's official CLI for Claude.`
-const AGENT_SDK_CLAUDE_CODE_PRESET_PREFIX = `You are Claude Code, Anthropic's official CLI for Claude, running within the Claude Agent SDK.`
-const AGENT_SDK_PREFIX = `You are a Claude agent, built on Anthropic's Claude Agent SDK.`
+const _isOpenAICompat = getLLMProviderKind() === 'openai_compat'
+
+const DEFAULT_PREFIX = _isOpenAICompat
+  ? `You are AI Agent, an intelligent coding assistant running in the user's terminal.`
+  : `You are Claude Code, Anthropic's official CLI for Claude.`
+const AGENT_SDK_CLAUDE_CODE_PRESET_PREFIX = _isOpenAICompat
+  ? `You are AI Agent, an intelligent coding assistant running within the Agent SDK.`
+  : `You are Claude Code, Anthropic's official CLI for Claude, running within the Claude Agent SDK.`
+const AGENT_SDK_PREFIX = _isOpenAICompat
+  ? `You are an AI agent, running within the Agent SDK.`
+  : `You are a Claude agent, built on Anthropic's Claude Agent SDK.`
 
 const CLI_SYSPROMPT_PREFIX_VALUES = [
   DEFAULT_PREFIX,
