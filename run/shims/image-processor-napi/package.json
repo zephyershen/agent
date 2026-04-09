@@ -1,0 +1,7 @@
+{
+  "name": "image-processor-napi",
+  "version": "0.0.0-shim",
+  "type": "module",
+  "main": "./index.js"
+}
+

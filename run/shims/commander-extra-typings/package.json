@@ -1,0 +1,7 @@
+{
+  "name": "@commander-js/extra-typings",
+  "version": "0.0.0-shim",
+  "type": "module",
+  "main": "./index.js"
+}
+
