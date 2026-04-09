@@ -6,7 +6,7 @@ import { logForDebugging } from 'src/utils/debug.js'
 import { getProjectRoot, getSessionId } from '../../bootstrap/state.js'
 import { getCommand, getSkillToolCommands, hasCommand } from '../../commands.js'
 import {
-  DEFAULT_AGENT_PROMPT,
+  getDefaultAgentPrompt,
   enhanceSystemPromptWithEnvDetails,
 } from '../../constants/prompts.js'
 import type { QuerySource } from '../../constants/querySource.js'
@@ -923,7 +923,7 @@ async function getAgentSystemPrompt(
     )
   } catch (_error) {
     return enhanceSystemPromptWithEnvDetails(
-      [DEFAULT_AGENT_PROMPT],
+      [getDefaultAgentPrompt()],
       resolvedAgentModel,
       additionalWorkingDirectories,
       enabledToolNames,

@@ -8,6 +8,46 @@ import type { ToolPermissionContext } from 'src/Tool.js'
 import type { AgentDefinition } from 'src/tools/AgentTool/loadAgentsDir.js'
 import type { AgentId } from 'src/types/ids.js'
 import { getOpenAICompatConfigOrThrow, getOpenAIApiFormat } from './providerConfig.js'
+import { writeFileSync, mkdirSync, existsSync } from 'fs'
+import { join } from 'path'
+
+// ---------------------------------------------------------------------------
+// Interaction logger — saves request/response pairs to logs/ directory
+// ---------------------------------------------------------------------------
+const LOGS_DIR = join(process.env.AI_AGENT_LOGS_DIR || '/home/projects/ai-agent/logs')
+let _logSeq = 0
+
+function getLogTimestamp(): string {
+  const d = new Date()
+  const pad2 = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}_${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}`
+}
+
+function saveInteractionLog(
+  api: 'chat_completions' | 'responses',
+  url: string,
+  requestBody: Record<string, unknown>,
+  responseData: unknown,
+  durationMs: number,
+) {
+  try {
+    if (!existsSync(LOGS_DIR)) mkdirSync(LOGS_DIR, { recursive: true })
+    _logSeq++
+    const ts = getLogTimestamp()
+    const filename = `${ts}_${String(_logSeq).padStart(3, '0')}_${api}.json`
+    const log = {
+      timestamp: new Date().toISOString(),
+      api,
+      url,
+      duration_ms: durationMs,
+      request: requestBody,
+      response: responseData,
+    }
+    writeFileSync(join(LOGS_DIR, filename), JSON.stringify(log, null, 2), 'utf-8')
+  } catch {
+    // Silently ignore logging errors to not break the main flow
+  }
+}
 
 type OpenAICompatChatMessage =
   | {
@@ -228,6 +268,7 @@ export async function queryOpenAICompatOnce({
   if (maxTokens !== undefined) body.max_tokens = maxTokens
 
   const url = `${baseUrl.replace(/\/+$/, '')}/chat/completions`
+  const _t0 = Date.now()
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -242,12 +283,14 @@ export async function queryOpenAICompatOnce({
 
   if (!res.ok) {
     const text = await res.text().catch(() => '')
+    saveInteractionLog('chat_completions', url, body, { status: res.status, error: text.slice(0, 1000) }, Date.now() - _t0)
     throw new Error(
       `OpenAI-compatible request failed (${res.status}): ${text.slice(0, 500)}`,
     )
   }
 
   const data = (await res.json()) as any
+  saveInteractionLog('chat_completions', url, body, data, Date.now() - _t0)
   const choice = data?.choices?.[0]?.message
   const contentText = typeof choice?.content === 'string' ? choice.content : ''
   const toolCalls = Array.isArray(choice?.tool_calls) ? choice.tool_calls : []
@@ -449,6 +492,7 @@ export async function queryOpenAIResponsesOnce({
   if (maxTokens !== undefined) body.max_output_tokens = maxTokens
 
   const url = `${baseUrl.replace(/\/+$/, '')}/responses`
+  const _t0 = Date.now()
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -463,12 +507,14 @@ export async function queryOpenAIResponsesOnce({
 
   if (!res.ok) {
     const text = await res.text().catch(() => '')
+    saveInteractionLog('responses', url, body, { status: res.status, error: text.slice(0, 1000) }, Date.now() - _t0)
     throw new Error(
       `OpenAI Responses API request failed (${res.status}): ${text.slice(0, 500)}`,
     )
   }
 
   const data = (await res.json()) as any
+  saveInteractionLog('responses', url, body, data, Date.now() - _t0)
 
   // Parse output items from the Responses API format.
   // output is an array of items: { type: "message", ... } or { type: "function_call", ... }

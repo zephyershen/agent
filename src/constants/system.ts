@@ -8,33 +8,39 @@ import { getAPIProvider } from '../utils/model/providers.js'
 import { getWorkload } from '../utils/workloadContext.js'
 import { getLLMProviderKind } from '../services/api/providerConfig.js'
 
-const _isOpenAICompat = getLLMProviderKind() === 'openai_compat'
+function _isOpenAICompat(): boolean {
+  return getLLMProviderKind() === 'openai_compat'
+}
 
-const DEFAULT_PREFIX = _isOpenAICompat
-  ? `You are AI Agent, an intelligent coding assistant running in the user's terminal.`
-  : `You are Claude Code, Anthropic's official CLI for Claude.`
-const AGENT_SDK_CLAUDE_CODE_PRESET_PREFIX = _isOpenAICompat
-  ? `You are AI Agent, an intelligent coding assistant running within the Agent SDK.`
-  : `You are Claude Code, Anthropic's official CLI for Claude, running within the Claude Agent SDK.`
-const AGENT_SDK_PREFIX = _isOpenAICompat
-  ? `You are an AI agent, running within the Agent SDK.`
-  : `You are a Claude agent, built on Anthropic's Claude Agent SDK.`
+function getDefaultPrefix(): string {
+  return _isOpenAICompat()
+    ? `You are AI Agent, an intelligent coding assistant running in the user's terminal.`
+    : `You are Claude Code, Anthropic's official CLI for Claude.`
+}
+function getAgentSdkClaudeCodePresetPrefix(): string {
+  return _isOpenAICompat()
+    ? `You are AI Agent, an intelligent coding assistant running within the Agent SDK.`
+    : `You are Claude Code, Anthropic's official CLI for Claude, running within the Claude Agent SDK.`
+}
+function getAgentSdkPrefix(): string {
+  return _isOpenAICompat()
+    ? `You are an AI agent, running within the Agent SDK.`
+    : `You are a Claude agent, built on Anthropic's Claude Agent SDK.`
+}
 
-const CLI_SYSPROMPT_PREFIX_VALUES = [
-  DEFAULT_PREFIX,
-  AGENT_SDK_CLAUDE_CODE_PRESET_PREFIX,
-  AGENT_SDK_PREFIX,
-] as const
-
-export type CLISyspromptPrefix = (typeof CLI_SYSPROMPT_PREFIX_VALUES)[number]
+export type CLISyspromptPrefix = string
 
 /**
  * All possible CLI sysprompt prefix values, used by splitSysPromptPrefix
  * to identify prefix blocks by content rather than position.
  */
-export const CLI_SYSPROMPT_PREFIXES: ReadonlySet<string> = new Set(
-  CLI_SYSPROMPT_PREFIX_VALUES,
-)
+export function getCLISyspromptPrefixes(): ReadonlySet<string> {
+  return new Set([
+    getDefaultPrefix(),
+    getAgentSdkClaudeCodePresetPrefix(),
+    getAgentSdkPrefix(),
+  ])
+}
 
 export function getCLISyspromptPrefix(options?: {
   isNonInteractive: boolean
@@ -42,16 +48,16 @@ export function getCLISyspromptPrefix(options?: {
 }): CLISyspromptPrefix {
   const apiProvider = getAPIProvider()
   if (apiProvider === 'vertex') {
-    return DEFAULT_PREFIX
+    return getDefaultPrefix()
   }
 
   if (options?.isNonInteractive) {
     if (options.hasAppendSystemPrompt) {
-      return AGENT_SDK_CLAUDE_CODE_PRESET_PREFIX
+      return getAgentSdkClaudeCodePresetPrefix()
     }
-    return AGENT_SDK_PREFIX
+    return getAgentSdkPrefix()
   }
-  return DEFAULT_PREFIX
+  return getDefaultPrefix()
 }
 
 /**
