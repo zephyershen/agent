@@ -32,6 +32,7 @@ import {
 } from './model.js'
 import { has1mContext } from '../context.js'
 import { getGlobalConfig } from '../config.js'
+import { getLLMProviderKind, fetchOpenAICompatModels } from '../../services/api/providerConfig.js'
 
 // @[MODEL LAUNCH]: Update all the available and default model option strings below.
 
@@ -458,7 +459,52 @@ function getKnownModelOption(model: string): ModelOption | null {
   }
 }
 
+// ---------------------------------------------------------------------------
+// OpenAI-compatible proxy model cache (populated by prefetchOpenAICompatModelOptions)
+// ---------------------------------------------------------------------------
+let _openaiCompatModelOptions: ModelOption[] | null = null
+
+/**
+ * Pre-fetch model list from the OpenAI-compatible proxy's /v1/models.
+ * Call this before showing the /model picker so the list is ready synchronously.
+ */
+export async function prefetchOpenAICompatModelOptions(): Promise<void> {
+  if (getLLMProviderKind() !== 'openai_compat') return
+  if (_openaiCompatModelOptions !== null) return
+  const models = await fetchOpenAICompatModels()
+  _openaiCompatModelOptions = models.map(id => ({
+    value: id,
+    label: id,
+    description: `Proxy model`,
+  }))
+}
+
 export function getModelOptions(fastMode = false): ModelOption[] {
+  // In openai_compat mode, show proxy models instead of hardcoded Anthropic models
+  if (getLLMProviderKind() === 'openai_compat' && _openaiCompatModelOptions !== null) {
+    const currentModel =
+      process.env.LLM_MODEL ||
+      process.env.OPENAI_MODEL ||
+      getUserSpecifiedModelSetting()
+    const options: ModelOption[] = []
+    // Put the current (.env) model first with a highlight
+    if (currentModel) {
+      const found = _openaiCompatModelOptions.find(o => o.value === currentModel)
+      options.push({
+        value: currentModel,
+        label: found?.label ?? currentModel,
+        description: `Current model (from .env)`,
+      })
+    }
+    // Add all other proxy models
+    for (const opt of _openaiCompatModelOptions) {
+      if (!options.some(o => o.value === opt.value)) {
+        options.push(opt)
+      }
+    }
+    return options
+  }
+
   const options = getModelOptionsBase(fastMode)
 
   // Add the custom model from the ANTHROPIC_CUSTOM_MODEL_OPTION env var

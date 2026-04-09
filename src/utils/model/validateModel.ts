@@ -10,6 +10,7 @@ import {
   AuthenticationError,
 } from '@anthropic-ai/sdk'
 import { getModelStrings } from './modelStrings.js'
+import { getLLMProviderKind, fetchOpenAICompatModels } from '../../services/api/providerConfig.js'
 
 // Cache valid models to avoid repeated API calls
 const validModelCache = new Map<string, boolean>()
@@ -51,6 +52,24 @@ export async function validateModel(
     return { valid: true }
   }
 
+  // For OpenAI-compatible providers, validate against the proxy model list
+  // instead of making an Anthropic SDK call.
+  if (getLLMProviderKind() === 'openai_compat') {
+    const models = await fetchOpenAICompatModels()
+    if (models.length === 0) {
+      // Cannot fetch model list — accept any model ID
+      validModelCache.set(normalizedModel, true)
+      return { valid: true }
+    }
+    if (models.includes(normalizedModel)) {
+      validModelCache.set(normalizedModel, true)
+      return { valid: true }
+    }
+    return {
+      valid: false,
+      error: `Model '${normalizedModel}' not found in proxy model list`,
+    }
+  }
 
   // Try to make an actual API call with minimal parameters
   try {

@@ -15,6 +15,7 @@ import { checkOpus1mAccess, checkSonnet1mAccess } from '../../utils/model/check1
 import { getDefaultMainLoopModelSetting, isOpus1mMergeEnabled, renderDefaultModelSetting } from '../../utils/model/model.js';
 import { isModelAllowed } from '../../utils/model/modelAllowlist.js';
 import { validateModel } from '../../utils/model/validateModel.js';
+import { prefetchOpenAICompatModelOptions } from '../../utils/model/modelOptions.js';
 function ModelPickerWrapper(t0) {
   const $ = _c(17);
   const {
@@ -269,6 +270,8 @@ function _temp7(s) {
   return s.mainLoopModel;
 }
 export const call: LocalJSXCommandCall = async (onDone, _context, args) => {
+  // Pre-fetch proxy model list so the picker shows all available models
+  await prefetchOpenAICompatModelOptions();
   args = args?.trim() || '';
   if (COMMON_INFO_ARGS.includes(args)) {
     logEvent('tengu_model_command_inline_help', {

@@ -73,6 +73,43 @@ export function getOpenAICompatConfigOrThrow(): {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Fetch available models from an OpenAI-compatible /v1/models endpoint.
+// Returns model IDs sorted alphabetically. Cached per-process.
+// ---------------------------------------------------------------------------
+let _modelsCache: string[] | null = null
+
+export async function fetchOpenAICompatModels(): Promise<string[]> {
+  if (_modelsCache) return _modelsCache
+  try {
+    const { baseUrl, apiKey, extraHeaders } = getOpenAICompatConfigOrThrow()
+    const url = `${baseUrl.replace(/\/+$/, '')}/models`
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        ...extraHeaders,
+      },
+    })
+    if (!res.ok) return []
+    const data = (await res.json()) as any
+    const seen = new Set<string>()
+    const models: string[] = []
+    const list = Array.isArray(data?.data) ? data.data : []
+    for (const m of list) {
+      if (m && typeof m.id === 'string' && !seen.has(m.id)) {
+        seen.add(m.id)
+        models.push(m.id)
+      }
+    }
+    models.sort((a, b) => a.localeCompare(b))
+    _modelsCache = models
+    return models
+  } catch {
+    return []
+  }
+}
+
 export function getOpenAIApiFormat(): OpenAIApiFormat {
   const raw =
     process.env.OPENAI_API_FORMAT ||
